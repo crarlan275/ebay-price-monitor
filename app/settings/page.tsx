@@ -21,10 +21,8 @@ export default function SettingsPage() {
     fetch('/api/products?settings=1')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
-        if (data) {
-          setForm(prev => ({ ...prev, ...data }));
-          setMonitoring(data.monitoringActive !== false);
-        }
+        if (data) setForm(prev => ({ ...prev, ...data }));
+        setMonitoring(data?.monitoringActive !== false);
       });
   }, []);
 
