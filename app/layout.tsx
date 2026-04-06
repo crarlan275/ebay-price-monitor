@@ -1,15 +1,29 @@
-// ============================================================
-// app/layout.tsx — Layout raíz de la aplicación
-// ============================================================
 import type { Metadata, Viewport } from 'next';
+import { Outfit, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
-import { Navbar } from '@/components/Navbar';
+import { Sidebar } from '@/components/Sidebar';
 
-/* PENDIENTE DISEÑO: tipografía — reemplazar Inter por la fuente elegida */
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-outfit',
+  display: 'swap',
+});
+
+const jetbrains = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+  weight: ['400', '500'],
+});
+
 export const metadata: Metadata = {
   title: 'eBay Price Monitor',
   description: 'Monitoreo automático de precios en eBay con alertas por WhatsApp',
   manifest: '/manifest.json',
+  icons: {
+    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
+    apple: [{ url: '/icons/icon-192x192.svg', type: 'image/svg+xml' }],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -18,22 +32,23 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#3b82f6',
+  themeColor: '#059669',
   width: 'device-width',
   initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
-      <body
-        /* PENDIENTE DISEÑO: color de fondo principal y tipografía base */
-        className="bg-gray-50 text-gray-900 font-sans antialiased"
-      >
-        <Navbar />
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {children}
-        </main>
+    <html lang="es" className={`${outfit.variable} ${jetbrains.variable}`}>
+      <body className="bg-[var(--bg)] text-[var(--text-1)] font-sans antialiased">
+        <div className="flex min-h-[100dvh]">
+          <Sidebar />
+          <main className="flex-1 min-w-0 px-6 py-8 lg:px-10 lg:py-10 ml-0 md:ml-64">
+            <div className="max-w-6xl mx-auto">
+              {children}
+            </div>
+          </main>
+        </div>
       </body>
     </html>
   );

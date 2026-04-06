@@ -1,11 +1,36 @@
-/* PENDIENTE DISEÑO: estilos globales y variables CSS */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  * {
+  *, *::before, *::after {
     box-sizing: border-box;
+  }
+
+  :root {
+    --bg:        #f9fafb;
+    --surface:   #ffffff;
+    --border:    rgba(24, 24, 27, 0.08);
+    --text-1:    #18181b;
+    --text-2:    #52525b;
+    --text-3:    #a1a1aa;
+    --accent:    #059669;
+    --accent-lt: #ecfdf5;
+  }
+
+  html {
+    color-scheme: light;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text-1);
+  }
+
+  input, select, textarea {
+    font-family: inherit;
   }
 }
 
@@ -16,5 +41,43 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Tactile feedback */
+  .btn-primary:active {
+    transform: translateY(1px) scale(0.98);
+  }
+
+  /* Fluid transition preset */
+  .transition-spring {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Skeleton shimmer */
+  @keyframes shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      #f1f1f1 25%,
+      #e8e8e8 37%,
+      #f1f1f1 63%
+    );
+    background-size: 800px 100%;
+    animation: shimmer 1.4s ease infinite;
+    border-radius: 6px;
+  }
+
+  /* Staggered entrance */
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-in {
+    animation: fadeSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 }

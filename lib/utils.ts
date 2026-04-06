@@ -20,14 +20,37 @@ export function formatPrice(amount: number, currency = 'USD'): string {
   }).format(amount);
 }
 
+/**
+ * Convierte un Timestamp de Firestore a Date.
+ * Soporta: Client SDK { seconds }, Admin SDK { _seconds }, Date, number, string.
+ */
+export function toDate(ts: any): Date {
+  if (!ts) return new Date(0);
+  if (ts instanceof Date) return isNaN(ts.getTime()) ? new Date(0) : ts;
+  if (typeof ts === 'number') return new Date(ts);
+  if (typeof ts === 'string') { const d = new Date(ts); return isNaN(d.getTime()) ? new Date(0) : d; }
+  // Admin SDK serializado: { _seconds, _nanoseconds }
+  if (typeof ts._seconds === 'number') return new Date(ts._seconds * 1000);
+  // Client SDK: { seconds, nanoseconds }
+  if (typeof ts.seconds === 'number') return new Date(ts.seconds * 1000);
+  // toDate() method (Firestore Timestamp)
+  if (typeof ts.toDate === 'function') return ts.toDate();
+  const fallback = new Date(ts);
+  return isNaN(fallback.getTime()) ? new Date(0) : fallback;
+}
+
 /** Formatea fecha completa */
-export function formatDate(date: Date | number): string {
-  return format(new Date(date), "d 'de' MMMM yyyy, HH:mm", { locale: es });
+export function formatDate(date: any): string {
+  const d = toDate(date);
+  if (d.getTime() === 0) return '—';
+  return format(d, "d 'de' MMMM yyyy, HH:mm", { locale: es });
 }
 
 /** Tiempo relativo (hace 5 minutos) */
-export function timeAgo(date: Date | number): string {
-  return formatDistanceToNow(new Date(date), { addSuffix: true, locale: es });
+export function timeAgo(date: any): string {
+  const d = toDate(date);
+  if (d.getTime() === 0) return '—';
+  return formatDistanceToNow(d, { addSuffix: true, locale: es });
 }
 
 /** Trunca texto a N caracteres */

@@ -1,12 +1,7 @@
 'use client';
-// ============================================================
-// components/PriceChart.tsx — Gráfica de evolución de precios
-// ============================================================
-// PENDIENTE DISEÑO: colores de línea, área, tooltip y ejes
-// ============================================================
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis,
-  CartesianGrid, Tooltip, Legend,
+  CartesianGrid, Tooltip,
 } from 'recharts';
 import { formatPrice } from '@/lib/utils';
 
@@ -21,52 +16,55 @@ interface Props {
 
 export function PriceChart({ data }: Props) {
   return (
-    <ResponsiveContainer width="100%" height={300}>
-      <AreaChart data={data} margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
-        {/* PENDIENTE DISEÑO: color de gradiente del área */}
+    <ResponsiveContainer width="100%" height={280}>
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <defs>
           <linearGradient id="priceGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.3} />
-            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}   />
+            <stop offset="5%"  stopColor="#059669" stopOpacity={0.15} />
+            <stop offset="95%" stopColor="#059669" stopOpacity={0}    />
           </linearGradient>
         </defs>
 
-        {/* PENDIENTE DISEÑO: color de líneas de grilla */}
-        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(24,24,27,0.06)" vertical={false} />
 
-        {/* PENDIENTE DISEÑO: tipografía y color de ejes */}
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 11, fill: '#9ca3af' }}
+          tick={{ fontSize: 10, fill: '#a1a1aa', fontFamily: 'var(--font-outfit)' }}
           tickLine={false}
+          axisLine={false}
         />
         <YAxis
           tickFormatter={v => `$${v}`}
-          tick={{ fontSize: 11, fill: '#9ca3af' }}
+          tick={{ fontSize: 10, fill: '#a1a1aa', fontFamily: 'var(--font-jetbrains)' }}
           tickLine={false}
           axisLine={false}
-          width={60}
+          width={52}
         />
 
-        {/* PENDIENTE DISEÑO: estilo del tooltip */}
         <Tooltip
           formatter={(value: number) => [formatPrice(value), 'Precio']}
           contentStyle={{
-            border: '1px solid #e5e7eb',
-            borderRadius: '8px',
+            background: '#ffffff',
+            border: '1px solid rgba(24,24,27,0.08)',
+            borderRadius: '12px',
             fontSize: '12px',
+            fontFamily: 'var(--font-outfit)',
+            boxShadow: '0 4px 16px -4px rgba(0,0,0,0.08)',
+            padding: '8px 12px',
           }}
+          itemStyle={{ color: '#059669', fontWeight: 600 }}
+          labelStyle={{ color: '#71717a', marginBottom: 4 }}
+          cursor={{ stroke: 'rgba(5,150,105,0.2)', strokeWidth: 1 }}
         />
 
-        {/* PENDIENTE DISEÑO: color de línea y área */}
         <Area
           type="monotone"
           dataKey="price"
-          stroke="#3b82f6"
+          stroke="#059669"
           strokeWidth={2}
           fill="url(#priceGradient)"
-          dot={{ r: 3, fill: '#3b82f6' }}
-          activeDot={{ r: 5 }}
+          dot={false}
+          activeDot={{ r: 4, fill: '#059669', stroke: '#ecfdf5', strokeWidth: 2 }}
           name="Precio USD"
         />
       </AreaChart>

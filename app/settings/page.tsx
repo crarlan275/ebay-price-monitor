@@ -1,20 +1,13 @@
 'use client';
-// ============================================================
-// app/settings/page.tsx — Configuración del usuario
-// ============================================================
-// PENDIENTE DISEÑO: colores de formulario de ajustes
-// ============================================================
 import { useEffect, useState } from 'react';
+import { CheckCircle, Clock, ArrowsClockwise, TelegramLogo } from '@phosphor-icons/react';
 
 const defaultSettings = {
-  ebayClientId:          '',
-  ebayClientSecret:      '',
-  ebayMarketplace:       'EBAY_US',
-  callmebotPhone:        '',
-  callmebotApikey:       '',
-  checkIntervalMinutes:  30,
-  dailySummaryEnabled:   false,
-  dailySummaryHour:      8,
+  checkIntervalMinutes: 60,
+  dailySummaryEnabled:  false,
+  dailySummaryHour:     8,
+  telegramBotToken:     '',
+  telegramChatId:       '',
 };
 
 export default function SettingsPage() {
@@ -32,9 +25,9 @@ export default function SettingsPage() {
     e.preventDefault();
     setSaving(true);
     await fetch('/api/products?settings=1', {
-      method: 'POST',
+      method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body:    JSON.stringify(form),
     });
     setSaving(false);
     setSaved(true);
@@ -43,92 +36,114 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-8 max-w-2xl">
-      {/* PENDIENTE DISEÑO: tipografía de título */}
-      <h1 className="text-2xl font-bold text-gray-900">Configuración</h1>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-1)]">Ajustes</h1>
+          <p className="text-sm text-[var(--text-3)] mt-1">Preferencias del monitor</p>
+        </div>
+        {saved && (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg animate-in">
+            <CheckCircle size={13} weight="fill" />
+            Cambios guardados
+          </span>
+        )}
+      </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* eBay API */}
-        {/* PENDIENTE DISEÑO: sección con borde y fondo */}
-        <Section title="eBay API">
-          <Field label="Client ID" htmlFor="eClientId">
-            <input id="eClientId" type="password" value={form.ebayClientId}
-              onChange={e => setForm(f => ({ ...f, ebayClientId: e.target.value }))}
-              placeholder="Tu eBay Client ID" className={inputCls} />
-          </Field>
-          <Field label="Client Secret" htmlFor="eClientSecret">
-            <input id="eClientSecret" type="password" value={form.ebayClientSecret}
-              onChange={e => setForm(f => ({ ...f, ebayClientSecret: e.target.value }))}
-              placeholder="Tu eBay Client Secret" className={inputCls} />
-          </Field>
-          <Field label="Marketplace" htmlFor="eMarket">
-            <select id="eMarket" value={form.ebayMarketplace}
-              onChange={e => setForm(f => ({ ...f, ebayMarketplace: e.target.value }))} className={inputCls}>
-              <option value="EBAY_US">eBay US</option>
-              <option value="EBAY_ES">eBay ES</option>
-              <option value="EBAY_DE">eBay DE</option>
-              <option value="EBAY_UK">eBay UK</option>
-            </select>
-          </Field>
-        </Section>
+      <form onSubmit={handleSubmit} className="space-y-5">
 
-        {/* Callmebot */}
-        <Section title="WhatsApp (Callmebot)">
-          <Field label="Número de teléfono" htmlFor="cbPhone">
-            <input id="cbPhone" type="tel" value={form.callmebotPhone}
-              onChange={e => setForm(f => ({ ...f, callmebotPhone: e.target.value }))}
-              placeholder="+1234567890" className={inputCls} />
+        {/* Telegram */}
+        <Section title="Telegram" Icon={TelegramLogo}>
+          <Field label="Bot Token" htmlFor="tgToken">
+            <input
+              id="tgToken" type="password" value={form.telegramBotToken}
+              onChange={e => setForm(f => ({ ...f, telegramBotToken: e.target.value }))}
+              placeholder="1234567890:AAxxxxxxxxxxxxxxxxxxxxxxxx"
+              className={inputCls}
+            />
           </Field>
-          <Field label="API Key" htmlFor="cbKey">
-            <input id="cbKey" type="password" value={form.callmebotApikey}
-              onChange={e => setForm(f => ({ ...f, callmebotApikey: e.target.value }))}
-              placeholder="Tu Callmebot API Key" className={inputCls} />
+          <Field label="Chat ID" htmlFor="tgChat">
+            <input
+              id="tgChat" value={form.telegramChatId}
+              onChange={e => setForm(f => ({ ...f, telegramChatId: e.target.value }))}
+              placeholder="754717512"
+              className={inputCls}
+            />
           </Field>
+          <p className="text-xs text-[var(--text-3)]">
+            Las credenciales activas están en <code className="bg-zinc-100 px-1 rounded">.env.local</code> — estos campos son para referencia o futura actualización.
+          </p>
         </Section>
 
         {/* Monitoreo */}
-        <Section title="Monitoreo">
-          <Field label="Intervalo de verificación (minutos)" htmlFor="interval">
-            <input id="interval" type="number" min="5" max="1440" value={form.checkIntervalMinutes}
-              onChange={e => setForm(f => ({ ...f, checkIntervalMinutes: parseInt(e.target.value) }))}
-              className={inputCls} />
+        <Section title="Monitoreo" Icon={ArrowsClockwise}>
+          <Field label="Intervalo de búsqueda (minutos)" htmlFor="interval">
+            <input
+              id="interval" type="number" min="30" max="1440"
+              value={form.checkIntervalMinutes}
+              onChange={e => setForm(f => ({ ...f, checkIntervalMinutes: Math.max(30, parseInt(e.target.value) || 30) }))}
+              className={inputCls}
+            />
+            <p className="text-xs text-[var(--text-3)] mt-1">
+              Mínimo 30 minutos · Máximo 1440 min (24 horas)
+            </p>
           </Field>
-          <div className="flex items-center gap-3">
-            <input id="summary" type="checkbox" checked={form.dailySummaryEnabled}
-              onChange={e => setForm(f => ({ ...f, dailySummaryEnabled: e.target.checked }))}
-              className="h-4 w-4 text-primary-600 rounded" />
-            <label htmlFor="summary" className="text-sm text-gray-700">Enviar resumen diario por WhatsApp</label>
-          </div>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <div
+              onClick={() => setForm(f => ({ ...f, dailySummaryEnabled: !f.dailySummaryEnabled }))}
+              className={[
+                'relative w-9 h-5 rounded-full transition-spring cursor-pointer',
+                form.dailySummaryEnabled ? 'bg-emerald-500' : 'bg-zinc-300',
+              ].join(' ')}
+            >
+              <span className={[
+                'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-spring',
+                form.dailySummaryEnabled ? 'left-4' : 'left-0.5',
+              ].join(' ')} />
+            </div>
+            <span className="text-sm text-[var(--text-2)]">Enviar resumen diario por Telegram</span>
+          </label>
+
           {form.dailySummaryEnabled && (
             <Field label="Hora del resumen (0–23)" htmlFor="summaryHour">
-              <input id="summaryHour" type="number" min="0" max="23" value={form.dailySummaryHour}
+              <input
+                id="summaryHour" type="number" min="0" max="23" value={form.dailySummaryHour}
                 onChange={e => setForm(f => ({ ...f, dailySummaryHour: parseInt(e.target.value) }))}
-                className={inputCls} />
+                className={inputCls}
+              />
             </Field>
           )}
         </Section>
 
-        <div className="flex items-center gap-4">
-          {/* PENDIENTE DISEÑO: color de botón guardar */}
-          <button type="submit" disabled={saving}
-            className="px-6 py-2 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition-colors">
-            {saving ? 'Guardando…' : 'Guardar cambios'}
-          </button>
-          {/* PENDIENTE DISEÑO: color de confirmación guardado */}
-          {saved && <span className="text-sm text-green-600 font-medium">✓ Cambios guardados</span>}
-        </div>
+        <button
+          type="submit" disabled={saving}
+          className="btn-primary inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition-spring active:scale-[0.98] shadow-sm"
+        >
+          <Clock size={15} weight="bold" />
+          {saving ? 'Guardando…' : 'Guardar cambios'}
+        </button>
       </form>
     </div>
   );
 }
 
-const inputCls = 'w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500';
+const inputCls = [
+  'w-full px-3.5 py-2.5 bg-zinc-50 border border-[var(--border)] rounded-xl text-sm',
+  'text-[var(--text-1)] placeholder:text-[var(--text-3)]',
+  'focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500',
+  'transition-spring',
+].join(' ');
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, Icon, children }: { title: string; Icon: React.ElementType; children: React.ReactNode }) {
   return (
-    /* PENDIENTE DISEÑO: sección con fondo y borde */
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
-      {/* PENDIENTE DISEÑO: color del título de sección */}
-      <h2 className="text-base font-semibold text-gray-700 border-b border-gray-100 pb-2">{title}</h2>
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 space-y-4 shadow-card">
+      <div className="flex items-center gap-2.5 pb-3 border-b border-[var(--border)]">
+        <div className="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center">
+          <Icon size={14} weight="duotone" className="text-zinc-500" />
+        </div>
+        <h2 className="text-sm font-semibold text-[var(--text-1)]">{title}</h2>
+      </div>
       {children}
     </div>
   );
@@ -136,8 +151,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Field({ label, htmlFor, children }: { label: string; htmlFor: string; children: React.ReactNode }) {
   return (
-    <div>
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={htmlFor} className="text-xs font-medium text-[var(--text-2)]">{label}</label>
       {children}
     </div>
   );

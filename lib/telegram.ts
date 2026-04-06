@@ -1,8 +1,49 @@
 // ============================================================
-// lib/whatsapp.ts — Notificaciones via Telegram Bot API
+// lib/telegram.ts — Notificaciones via Telegram Bot API
 // ============================================================
 
 const TELEGRAM_API = 'https://api.telegram.org';
+
+// Cache de credenciales para no leer Firestore en cada mensaje
+let _credCache: { token: string; chatId: string } | null = null;
+let _credCacheTime = 0;
+const CRED_CACHE_MS = 5 * 60 * 1000; // 5 minutos
+
+/**
+ * Lee las credenciales de Telegram con este orden de prioridad:
+ * 1. Variables de entorno (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID)
+ * 2. Firestore → settings / default-user (lo que configura el usuario en Settings)
+ */
+async function getTelegramCredentials(): Promise<{ token: string; chatId: string } | null> {
+  // 1) Variables de entorno tienen prioridad
+  const envToken  = process.env.TELEGRAM_BOT_TOKEN;
+  const envChatId = process.env.TELEGRAM_CHAT_ID;
+  if (envToken && envChatId) return { token: envToken, chatId: envChatId };
+
+  // 2) Cache local
+  if (_credCache && Date.now() - _credCacheTime < CRED_CACHE_MS) return _credCache;
+
+  // 3) Leer de Firestore settings
+  try {
+    const { getSettings } = await import('./firebase');
+    const settings = await getSettings('default-user');
+    if (settings?.telegramBotToken && settings?.telegramChatId) {
+      _credCache    = { token: settings.telegramBotToken, chatId: settings.telegramChatId };
+      _credCacheTime = Date.now();
+      return _credCache;
+    }
+  } catch (e) {
+    console.error('[Telegram] Error leyendo credenciales de Firestore:', e);
+  }
+
+  return null;
+}
+
+/** Invalida el cache de credenciales (llamar tras guardar Settings) */
+export function invalidateTelegramCache(): void {
+  _credCache     = null;
+  _credCacheTime = 0;
+}
 
 interface AlertData {
   productName:  string;
@@ -22,12 +63,10 @@ interface AlertData {
 }
 
 // ── Enviar alerta individual de oferta ────────────────────────
-export async function sendWhatsAppAlert(alert: AlertData): Promise<boolean> {
-  const token  = process.env.TELEGRAM_BOT_TOKEN!;
-  const chatId = process.env.TELEGRAM_CHAT_ID!;
-
-  if (!token || !chatId) {
-    console.warn('[Telegram] TELEGRAM_BOT_TOKEN o TELEGRAM_CHAT_ID no configurados');
+export async function sendTelegramAlert(alert: AlertData): Promise<boolean> {
+  const creds = await getTelegramCredentials();
+  if (!creds) {
+    console.warn('[Telegram] No hay credenciales configuradas (Settings → Telegram)');
     return false;
   }
 
@@ -81,48 +120,42 @@ export async function sendWhatsAppAlert(alert: AlertData): Promise<boolean> {
     `🔗 [Ver en eBay](${escUrl(alert.url)})`,
   ].filter(l => l !== '').join('\n');
 
-  return sendMessage(token, chatId, message);
+  return sendMessage(creds.token, creds.chatId, message);
 }
 
 // ── Enviar encabezado/divisor por producto ────────────────────
 export async function sendProductHeader(productName: string): Promise<boolean> {
-  const token  = process.env.TELEGRAM_BOT_TOKEN!;
-  const chatId = process.env.TELEGRAM_CHAT_ID!;
-  if (!token || !chatId) return false;
+  const creds = await getTelegramCredentials();
+  if (!creds) return false;
 
-  const sep = '━━━━━━━━━━━━━━━━━━━━';
+  const sep     = '━━━━━━━━━━━━━━━━━━━━';
   const message = `${sep}\n📦 *${escMd(productName)}*\n${sep}`;
-  return sendMessage(token, chatId, message);
+  return sendMessage(creds.token, creds.chatId, message);
 }
 
 // ── Enviar separador de sección de lotes ─────────────────────
 export async function sendLotSectionHeader(): Promise<boolean> {
-  const token  = process.env.TELEGRAM_BOT_TOKEN!;
-  const chatId = process.env.TELEGRAM_CHAT_ID!;
-  if (!token || !chatId) return false;
+  const creds = await getTelegramCredentials();
+  if (!creds) return false;
 
-  const message = `🎁 *LOTES DETECTADOS*`;
-  return sendMessage(token, chatId, message);
+  return sendMessage(creds.token, creds.chatId, `🎁 *LOTES DETECTADOS*`);
 }
 
 // ── Enviar separador de sección de subastas ───────────────────
 export async function sendBidSectionHeader(): Promise<boolean> {
-  const token  = process.env.TELEGRAM_BOT_TOKEN!;
-  const chatId = process.env.TELEGRAM_CHAT_ID!;
-  if (!token || !chatId) return false;
+  const creds = await getTelegramCredentials();
+  if (!creds) return false;
 
-  const message = `🔨 *SUBASTAS ACTIVAS*`;
-  return sendMessage(token, chatId, message);
+  return sendMessage(creds.token, creds.chatId, `🔨 *SUBASTAS ACTIVAS*`);
 }
 
 // ── Enviar mensaje de "sin resultados nuevos" para un producto ─
 export async function sendNoResults(productName: string): Promise<boolean> {
-  const token  = process.env.TELEGRAM_BOT_TOKEN!;
-  const chatId = process.env.TELEGRAM_CHAT_ID!;
-  if (!token || !chatId) return false;
+  const creds = await getTelegramCredentials();
+  if (!creds) return false;
 
-  const message = `✅ _Sin novedades en este chequeo_`;
-  return sendMessage(token, chatId, message);
+  const message = `✅ _Sin novedades para_ *${escMd(productName)}*`;
+  return sendMessage(creds.token, creds.chatId, message);
 }
 
 // ── Enviar resumen diario ─────────────────────────────────────
@@ -131,10 +164,8 @@ export async function sendDailySummary(
   alertsToday:   number,
   topDeals:      AlertData[],
 ): Promise<boolean> {
-  const token  = process.env.TELEGRAM_BOT_TOKEN!;
-  const chatId = process.env.TELEGRAM_CHAT_ID!;
-
-  if (!token || !chatId) return false;
+  const creds = await getTelegramCredentials();
+  if (!creds) return false;
 
   const dealsText = topDeals.length
     ? topDeals
@@ -155,7 +186,7 @@ export async function sendDailySummary(
     `_${escMd(new Date().toLocaleDateString('es-ES'))}_`,
   ].join('\n');
 
-  return sendMessage(token, chatId, message);
+  return sendMessage(creds.token, creds.chatId, message);
 }
 
 // ── Función base ──────────────────────────────────────────────
@@ -170,7 +201,7 @@ async function sendMessage(token: string, chatId: string, text: string): Promise
     };
 
     console.log('[Telegram] Enviando mensaje a chat_id:', chatId);
-    const res     = await fetch(url, {
+    const res  = await fetch(url, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify(body),
@@ -191,12 +222,10 @@ async function sendMessage(token: string, chatId: string, text: string): Promise
 
 // ── Escapar caracteres especiales para MarkdownV2 ─────────────
 function escMd(text: string): string {
-  // Todos los caracteres reservados en MarkdownV2
   return String(text).replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, '\\$&');
 }
 
 // ── Escapar URL dentro de un link Markdown ────────────────────
-// En MarkdownV2 dentro de (url) solo hay que escapar ) y \
 function escUrl(url: string): string {
   return url.replace(/\\/g, '\\\\').replace(/\)/g, '\\)');
 }

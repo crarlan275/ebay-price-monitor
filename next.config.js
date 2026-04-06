@@ -8,6 +8,7 @@ const withPWA = require('next-pwa')({
 
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {},
   images: {
     domains: ['i.ebayimg.com', 'thumbs1.ebaystatic.com', 'thumbs2.ebaystatic.com'],
   },
