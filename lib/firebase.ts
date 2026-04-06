@@ -133,6 +133,7 @@ export interface Settings {
   dailySummaryHour: number;
   telegramBotToken?: string;
   telegramChatId?: string;
+  monitoringActive?: boolean;
   updatedAt: any;
 }
 
