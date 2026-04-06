@@ -144,8 +144,11 @@ export async function GET(req: NextRequest) {
   const { getAdminDb } = await import('@/lib/firebase-admin');
   const adb = getAdminDb();
 
-  // ── Leer intervalo global (fallback para productos sin intervalo propio) ──
+  // ── Respetar pausa global del monitoreo ───────────────────────
   const settings = await getSettings('default-user');
+  if (settings?.monitoringActive === false) {
+    return NextResponse.json({ ok: true, paused: true, message: 'Monitoreo pausado' });
+  }
   const globalIntervalMinutes = Math.max(settings?.checkIntervalMinutes ?? 60, 5);
 
   // Registrar timestamp de esta llamada (para referencia/debug)

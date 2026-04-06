@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { CheckCircle, Clock, ArrowsClockwise, TelegramLogo } from '@phosphor-icons/react';
+import { CheckCircle, Clock, ArrowsClockwise, TelegramLogo, Play, Pause } from '@phosphor-icons/react';
 
 const defaultSettings = {
   checkIntervalMinutes: 60,
@@ -11,15 +11,34 @@ const defaultSettings = {
 };
 
 export default function SettingsPage() {
-  const [form, setForm]     = useState(defaultSettings);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved]   = useState(false);
+  const [form, setForm]               = useState(defaultSettings);
+  const [saving, setSaving]           = useState(false);
+  const [saved, setSaved]             = useState(false);
+  const [monitoring, setMonitoring]   = useState<boolean | null>(null);
+  const [togglingMon, setTogglingMon] = useState(false);
 
   useEffect(() => {
     fetch('/api/products?settings=1')
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setForm(prev => ({ ...prev, ...data })); });
+      .then(data => {
+        if (data) {
+          setForm(prev => ({ ...prev, ...data }));
+          setMonitoring(data.monitoringActive !== false);
+        }
+      });
   }, []);
+
+  async function toggleMonitoring() {
+    setTogglingMon(true);
+    const next = !monitoring;
+    await fetch('/api/products?settings=1', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ monitoringActive: next }),
+    });
+    setMonitoring(next);
+    setTogglingMon(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,6 +66,50 @@ export default function SettingsPage() {
             <CheckCircle size={13} weight="fill" />
             Cambios guardados
           </span>
+        )}
+      </div>
+
+      {/* Monitor on/off — fuera del form, se guarda al instante */}
+      <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6 shadow-card">
+        <div className="flex items-center gap-2.5 pb-3 border-b border-[var(--border)] mb-4">
+          <div className="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center">
+            <ArrowsClockwise size={14} weight="duotone" className="text-zinc-500" />
+          </div>
+          <h2 className="text-sm font-semibold text-[var(--text-1)]">Estado del monitor</h2>
+        </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-[var(--text-1)]">
+              {monitoring === null ? 'Cargando…' : monitoring ? 'Activo — buscando en eBay' : 'Pausado — no se realizan búsquedas'}
+            </p>
+            <p className="text-xs text-[var(--text-3)] mt-0.5">
+              Pausa para no consumir invocaciones de Vercel cuando no lo necesites.
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={monitoring === null || togglingMon}
+            onClick={toggleMonitoring}
+            className={[
+              'inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-spring shadow-sm',
+              monitoring
+                ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white',
+              'disabled:opacity-50',
+            ].join(' ')}
+          >
+            {monitoring ? <Pause size={14} weight="fill" /> : <Play size={14} weight="fill" />}
+            {togglingMon ? 'Guardando…' : monitoring ? 'Pausar' : 'Activar'}
+          </button>
+        </div>
+        {monitoring !== null && (
+          <div className={[
+            'mt-4 flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg',
+            monitoring ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200',
+          ].join(' ')}>
+            <span className={['w-2 h-2 rounded-full', monitoring ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'].join(' ')} />
+            {monitoring ? 'El cron está activo — GitHub Actions lo ejecuta cada 30 min' : 'El cron responde inmediatamente indicando que está pausado'}
+          </div>
         )}
       </div>
 
