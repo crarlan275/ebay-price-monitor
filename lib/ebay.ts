@@ -70,7 +70,7 @@ function parseEbayHtml(html: string, limit: number): EbayItem[] {
 
     // ── Precio ────────────────────────────────────────────────
     // Nuevo: <span class="...s-card__price">$326.01</span>
-    const priceMatches = [...chunk.matchAll(/class=["']?[^"'>]*s-card__price[^"'>]*["']?[^>]*>\s*\$?([\d,]+\.?\d{0,2})\s*<\/span>/g)];
+    const priceMatches = Array.from(chunk.matchAll(/class=["']?[^"'>]*s-card__price[^"'>]*["']?[^>]*>\s*\$?([\d,]+\.?\d{0,2})\s*<\/span>/g));
     if (!priceMatches.length) continue;
     const price = parseFloat(priceMatches[0][1].replace(/,/g, ''));
     if (!price || price === 0) continue;
