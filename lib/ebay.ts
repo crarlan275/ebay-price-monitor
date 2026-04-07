@@ -143,7 +143,11 @@ async function _doScrape(ebayUrl: string, limit: number): Promise<EbayItem[]> {
   if (!res.ok) throw new Error(`eBay HTTP ${res.status} (via ${via})`);
   const html = await res.text();
   const items = parseEbayHtml(html, limit);
-  console.log(`[ebay] ${items.length} items via ${via}: ${ebayUrl.split('?')[0]} | html=${html.length}b`);
+  // Debug: mostrar estructura HTML para diagnóstico
+  const itm268 = (html.match(/ebay\.com\/itm\/\d{10,}/g) || []).length;
+  const firstItmIdx = html.search(/ebay\.com\/itm\/\d{10,}/);
+  const snippet = firstItmIdx > -1 ? html.slice(Math.max(0, firstItmIdx - 200), firstItmIdx + 200).replace(/\s+/g, ' ') : 'NO_ITM_URLS';
+  console.log(`[ebay] ${items.length} items via ${via}: html=${html.length}b itm_urls=${itm268} snippet="${snippet}"`);
   return items;
 }
 
