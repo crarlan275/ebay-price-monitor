@@ -46,8 +46,8 @@ function parseEbayHtml(html: string, limit: number): EbayItem[] {
     if (items.length >= limit) break;
     if (!chunk.includes('/itm/')) continue;
 
-    // ── URL e itemId (sin comillas alrededor del href) ────────
-    const urlMatch = chunk.match(/href=(https:\/\/www\.ebay\.[^/]+\/itm\/(\d{8,})[^\s>]*)/);
+    // ── URL e itemId (con o sin comillas alrededor del href) ──
+    const urlMatch = chunk.match(/href=["']?(https:\/\/www\.ebay\.[^/]+\/itm\/(\d{8,})[^\s"'>]*)/);
     if (!urlMatch) continue;
     const url    = `https://www.ebay.com/itm/${urlMatch[2]}`;
     const itemId = urlMatch[2];
@@ -57,7 +57,8 @@ function parseEbayHtml(html: string, limit: number): EbayItem[] {
     // Nuevo: <span class="su-styled-text primary default">Título real</span>
     // (dentro de s-card__title, DESPUÉS del opcional <span class=s-card__new-listing>)
     let title = '';
-    const titleM = chunk.match(/class="su-styled-text primary default">([^<]{5,})<\/span>/);
+    // Intenta con o sin comillas alrededor del class
+    const titleM = chunk.match(/class=["']?su-styled-text[^"'>]*primary[^"'>]*default["']?>([^<]{5,})<\/span>/);
     if (titleM) title = titleM[1].trim();
     if (!title) {
       // Fallback: alt de imagen del producto
@@ -69,7 +70,7 @@ function parseEbayHtml(html: string, limit: number): EbayItem[] {
 
     // ── Precio ────────────────────────────────────────────────
     // Nuevo: <span class="...s-card__price">$326.01</span>
-    const priceMatches = [...chunk.matchAll(/class="[^"]*s-card__price[^"]*"[^>]*>\$?([\d,]+\.?\d{0,2})<\/span>/g)];
+    const priceMatches = [...chunk.matchAll(/class=["']?[^"'>]*s-card__price[^"'>]*["']?[^>]*>\s*\$?([\d,]+\.?\d{0,2})\s*<\/span>/g)];
     if (!priceMatches.length) continue;
     const price = parseFloat(priceMatches[0][1].replace(/,/g, ''));
     if (!price || price === 0) continue;
@@ -139,8 +140,11 @@ async function _doScrape(ebayUrl: string, limit: number): Promise<EbayItem[]> {
   // Debug: mostrar estructura HTML para diagnóstico
   const itm268 = (html.match(/ebay\.com\/itm\/\d{10,}/g) || []).length;
   const firstItmIdx = html.search(/ebay\.com\/itm\/\d{10,}/);
-  const snippet = firstItmIdx > -1 ? html.slice(Math.max(0, firstItmIdx - 200), firstItmIdx + 200).replace(/\s+/g, ' ') : 'NO_ITM_URLS';
-  console.log(`[ebay] ${items.length} items via ${via}: html=${html.length}b itm_urls=${itm268} snippet="${snippet}"`);
+  const snippet = firstItmIdx > -1 ? html.slice(Math.max(0, firstItmIdx - 300), firstItmIdx + 200).replace(/\s+/g, ' ') : 'NO_ITM_URLS';
+  // Detectar si el HTML usa hrefs con comillas o sin comillas (para debug)
+  const hrefStyle = html.includes('href="https://www.ebay') ? 'quoted' : html.includes("href='https://www.ebay") ? 'single-quoted' : 'unquoted';
+  const sCardCount = (html.match(/class=["']?s-card/g) || []).length;
+  console.log(`[ebay] ${items.length} items via ${via}: html=${html.length}b itm_urls=${itm268} s-cards=${sCardCount} href-style=${hrefStyle} snippet="${snippet}"`);
   return items;
 }
 

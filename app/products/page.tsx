@@ -181,8 +181,9 @@ export default function ProductsPage() {
       {/* Banner estado del cron */}
       {(() => {
         const minutesAgo = lastCronRun ? Math.floor((Date.now() - lastCronRun.getTime()) / 60_000) : null;
-        const isAlive    = minutesAgo !== null && minutesAgo <= 3;
-        const isDead     = minutesAgo === null || minutesAgo > 5;
+        // GitHub Actions corre cada 30 min — "activo" si fue hace ≤35 min, "detenido" si hace >45 min
+        const isAlive    = minutesAgo !== null && minutesAgo <= 35;
+        const isDead     = minutesAgo === null || minutesAgo > 45;
         return (
           <div className={[
             'flex items-center gap-3 px-4 py-3 rounded-xl border text-xs font-medium',
@@ -195,12 +196,12 @@ export default function ProductsPage() {
               : <span className={['w-2 h-2 rounded-full shrink-0', isAlive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'].join(' ')} />
             }
             {minutesAgo === null
-              ? '⚠️ El proceso cron-runner no ha corrido nunca. Ejecuta stop-monitor.ps1 → start-monitor.ps1'
+              ? 'El cron no ha corrido nunca — verifica GitHub Actions'
               : isDead
-              ? `Cron detenido — última ejecución hace ${minutesAgo} min. Ejecuta stop-monitor.ps1 → start-monitor.ps1`
+              ? `Cron tardío — última ejecución hace ${minutesAgo} min. Verifica GitHub Actions`
               : isAlive
               ? `Cron activo — última ejecución ${timeAgo(lastCronRun)}`
-              : `Cron tardío — última ejecución hace ${minutesAgo} min (esperado cada ~1 min)`
+              : `Cron pendiente — última ejecución hace ${minutesAgo} min (corre cada 30 min)`
             }
           </div>
         );
