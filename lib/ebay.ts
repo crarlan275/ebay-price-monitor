@@ -24,7 +24,7 @@ function between(src: string, open: string, close: string): string {
   return src.slice(s + open.length, e).trim();
 }
 
-// ── Parser de HTML de búsqueda de eBay ───────────────────────
+// ── Parser de HTML de búsqueda de eBay (nuevo formato s-card) ─
 function parseEbayHtml(html: string, limit: number): EbayItem[] {
   const items: EbayItem[] = [];
 
@@ -36,91 +36,83 @@ function parseEbayHtml(html: string, limit: number): EbayItem[] {
     lower.includes('security check') || lower.includes('verify you') ||
     lower.includes('pardon our interruption') || lower.includes('bot check')
   ) {
-    throw new Error('eBay bloqueó la búsqueda (bot-block: "Pardon Our Interruption")');
+    throw new Error('eBay bloqueó la búsqueda (bot-block)');
   }
 
-  // Dividir por items — eBay usa <li class="s-item" o <div class="s-item"
-  const chunks = html.split(/(?=<li[^>]+class="[^"]*s-item[^"]*")/);
+  // eBay nuevo formato (2024+): <li class="s-card s-card--horizontal">
+  const chunks = html.split(/(?=<li[^>]+class="[^"]*s-card[^"]*")/);
 
   for (const chunk of chunks) {
     if (items.length >= limit) break;
     if (!chunk.includes('/itm/')) continue;
 
-    // ── URL e itemId ──────────────────────────────────────────
-    const urlMatch = chunk.match(/href="(https?:\/\/www\.ebay\.[^/]+\/itm\/(\d{8,})[^"]*)"/);
+    // ── URL e itemId (sin comillas alrededor del href) ────────
+    const urlMatch = chunk.match(/href=(https:\/\/www\.ebay\.[^/]+\/itm\/(\d{8,})[^\s>]*)/);
     if (!urlMatch) continue;
-    const url    = urlMatch[1].split('?')[0]; // quitar query params
+    const url    = `https://www.ebay.com/itm/${urlMatch[2]}`;
     const itemId = urlMatch[2];
+    if (itemId === '123456') continue; // placeholder
 
     // ── Título ────────────────────────────────────────────────
-    // eBay pone el título en varios formatos — probar ambos
+    // Nuevo: <div class=s-card__title> contiene <span class="su-styled-text primary default">
     let title = '';
-    const titlePatterns = [
-      /class="[^"]*s-item__title[^"]*"[^>]*>\s*<span[^>]*>([^<]+)<\/span>/i,
-      /class="[^"]*s-item__title[^"]*"[^>]*>([^<]{5,})</i,
-      /role="heading"[^>]*>([^<]{5,})</i,
-    ];
-    for (const p of titlePatterns) {
-      const m = chunk.match(p);
-      if (m) { title = m[1].trim(); break; }
+    const titleM = chunk.match(/class=s-card__title[\s\S]{0,200}?<span[^>]*>([^<]{5,})<\/span>/);
+    if (titleM) title = titleM[1].trim();
+    if (!title) {
+      // Fallback: alt de imagen del producto
+      const altM = chunk.match(/class=s-card__image[^>]+alt="([^"]{5,})"/);
+      if (altM) title = altM[1];
     }
     title = title.replace(/Opens in a new window or tab\.?/gi, '').trim();
     if (!title || title.toLowerCase() === 'shop on ebay') continue;
 
     // ── Precio ────────────────────────────────────────────────
-    const priceMatch = chunk.match(/class="[^"]*s-item__price[^"]*"[^>]*>[\s\S]*?\$([\d,]+\.?\d{0,2})/);
-    if (!priceMatch) continue;
-    const price = parseFloat(priceMatch[1].replace(/,/g, ''));
+    // Nuevo: <span class="...s-card__price">$326.01</span>
+    const priceMatches = [...chunk.matchAll(/class="[^"]*s-card__price[^"]*"[^>]*>\$?([\d,]+\.?\d{0,2})<\/span>/g)];
+    if (!priceMatches.length) continue;
+    const price = parseFloat(priceMatches[0][1].replace(/,/g, ''));
     if (!price || price === 0) continue;
 
     // ── Condición ─────────────────────────────────────────────
-    const condMatch = chunk.match(/class="[^"]*(?:s-item__subtitle|SECONDARY_INFO)[^"]*"[^>]*>([^<]{2,50})</i);
-    const condition = condMatch ? condMatch[1].trim() : 'Unknown';
+    // Nuevo: primera <span class="su-styled-text secondary default"> en subtitle
+    const condM = chunk.match(/class=s-card__subtitle[\s\S]{0,300}?<span[^>]*>([^<]{2,40})<\/span>/);
+    const condition = condM ? condM[1].replace(/[^\x20-\x7E]/g, '').trim() : 'Unknown';
 
-    // ── Envío ─────────────────────────────────────────────────
-    let shippingCost: number | null = null;
-    if (/free shipping/i.test(chunk)) {
-      shippingCost = 0;
-    } else {
-      const shipMatch = chunk.match(/\+\s*\$?([\d.]+)\s*shipping/i);
-      if (shipMatch) shippingCost = parseFloat(shipMatch[1]);
-    }
+    // ── Imagen ────────────────────────────────────────────────
+    const imgM = chunk.match(/class=s-card__image[^>]+src=(https:\/\/i\.ebayimg\.com\/[^\s>]+)/);
+    const imageUrl = imgM ? imgM[1] : '';
 
     // ── Subastas (bid) ────────────────────────────────────────
     let isBid = false;
     let bidCount = 0;
     let timeLeftMinutes: number | undefined;
 
-    const bidMatch = chunk.match(/(\d+)\s*bids?\b/i);
-    if (bidMatch) { isBid = true; bidCount = parseInt(bidMatch[1]); }
+    const bidM = chunk.match(/([\d,]+)\s*bid/i);
+    if (bidM) { isBid = true; bidCount = parseInt(bidM[1].replace(/,/g, '')); }
 
-    const tlDays  = chunk.match(/(\d+)d\s*(?:(\d+)h)?\s*left/i);
-    const tlHours = chunk.match(/(\d+)h\s*(?:(\d+)m)?\s*left/i);
-    const tlMins  = chunk.match(/\b(\d+)m\s*left/i);
-    if (tlDays) {
-      isBid = true;
-      timeLeftMinutes = parseInt(tlDays[1]) * 1440 + (tlDays[2] ? parseInt(tlDays[2]) * 60 : 0);
-    } else if (tlHours) {
-      isBid = true;
-      timeLeftMinutes = parseInt(tlHours[1]) * 60 + (tlHours[2] ? parseInt(tlHours[2]) : 0);
-    } else if (tlMins) {
-      isBid = true;
-      timeLeftMinutes = parseInt(tlMins[1]);
+    // Tiempo restante en s-card__time-left
+    const tlM = chunk.match(/s-card__time-left[^>]*>([^<]+)</);
+    if (tlM && isBid) {
+      const t = tlM[1];
+      const d = parseInt((t.match(/(\d+)d/) || ['','0'])[1]);
+      const h = parseInt((t.match(/(\d+)h/) || ['','0'])[1]);
+      const m = parseInt((t.match(/(\d+)m/) || ['','0'])[1]);
+      timeLeftMinutes = d * 1440 + h * 60 + m;
     }
 
     items.push({
       itemId,
       title,
       price,
-      currency:     'USD',
+      currency:    'USD',
       condition,
-      conditionId:  '',
+      conditionId: '',
       url,
-      imageUrl:     '',
-      seller:       '',
-      shippingCost,
-      totalPrice:   shippingCost !== null ? price + shippingCost : price,
-      location:     '',
+      imageUrl,
+      seller:      '',
+      shippingCost: null,
+      totalPrice:  price,
+      location:    'US',
       ...(isBid ? { isBid: true, bidCount, timeLeftMinutes } : {}),
     });
   }
