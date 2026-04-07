@@ -54,9 +54,10 @@ function parseEbayHtml(html: string, limit: number): EbayItem[] {
     if (itemId === '123456') continue; // placeholder
 
     // ── Título ────────────────────────────────────────────────
-    // Nuevo: <div class=s-card__title> contiene <span class="su-styled-text primary default">
+    // Nuevo: <span class="su-styled-text primary default">Título real</span>
+    // (dentro de s-card__title, DESPUÉS del opcional <span class=s-card__new-listing>)
     let title = '';
-    const titleM = chunk.match(/class=s-card__title[\s\S]{0,200}?<span[^>]*>([^<]{5,})<\/span>/);
+    const titleM = chunk.match(/class="su-styled-text primary default">([^<]{5,})<\/span>/);
     if (titleM) title = titleM[1].trim();
     if (!title) {
       // Fallback: alt de imagen del producto
