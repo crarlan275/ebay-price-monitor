@@ -141,6 +141,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // ?force=true omite el chequeo de intervalo (útil para pruebas manuales)
+  const force = req.nextUrl.searchParams.get('force') === 'true';
+
   const { getAdminDb } = await import('@/lib/firebase-admin');
   const adb = getAdminDb();
 
@@ -181,7 +184,7 @@ export async function GET(req: NextRequest) {
         ? (product.lastCheckedAt.seconds ?? 0) * 1000
         : 0;
       const minutesSinceLastCheck = (Date.now() - lastChecked) / 60_000;
-      if (minutesSinceLastCheck < effectiveInterval) {
+      if (!force && minutesSinceLastCheck < effectiveInterval) {
         const waitMin = Math.ceil(effectiveInterval - minutesSinceLastCheck);
         console.log(`[CRON] "${product.name}" omitido (${effectiveInterval} min) — próximo en ${waitMin} min`);
         results.push({ productId: product.id!, found: 0, alerts: 0 });

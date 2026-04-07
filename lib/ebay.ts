@@ -131,7 +131,7 @@ async function _doScrape(ebayUrl: string, limit: number): Promise<EbayItem[]> {
 
   const res = await fetch(fetchUrl, {
     headers: scraperKey ? {} : BROWSER_HEADERS,
-    signal:  AbortSignal.timeout(30_000),
+    signal:  AbortSignal.timeout(55_000),
   });
   if (!res.ok) throw new Error(`eBay HTTP ${res.status} (via ${via})`);
   const html = await res.text();
