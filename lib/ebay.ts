@@ -33,9 +33,10 @@ function parseEbayHtml(html: string, limit: number): EbayItem[] {
   if (
     lower.includes('robot') || lower.includes('captcha') ||
     lower.includes('unusual traffic') || lower.includes('access denied') ||
-    lower.includes('security check') || lower.includes('verify you')
+    lower.includes('security check') || lower.includes('verify you') ||
+    lower.includes('pardon our interruption') || lower.includes('bot check')
   ) {
-    throw new Error('eBay bloqueó la búsqueda (CAPTCHA/verificación)');
+    throw new Error('eBay bloqueó la búsqueda (bot-block: "Pardon Our Interruption")');
   }
 
   // Dividir por items — eBay usa <li class="s-item" o <div class="s-item"
@@ -129,14 +130,20 @@ function parseEbayHtml(html: string, limit: number): EbayItem[] {
 
 // ── Scraper real de una URL de eBay (sin browser) ─────────────
 async function _doScrape(ebayUrl: string, limit: number): Promise<EbayItem[]> {
-  const res = await fetch(ebayUrl, {
-    headers: BROWSER_HEADERS,
-    signal:  AbortSignal.timeout(15_000),
+  const scraperKey = process.env.SCRAPER_API_KEY;
+  const fetchUrl = scraperKey
+    ? `http://api.scraperapi.com/?api_key=${scraperKey}&url=${encodeURIComponent(ebayUrl)}`
+    : ebayUrl;
+  const via = scraperKey ? 'scraperapi' : 'direct';
+
+  const res = await fetch(fetchUrl, {
+    headers: scraperKey ? {} : BROWSER_HEADERS,
+    signal:  AbortSignal.timeout(30_000),
   });
-  if (!res.ok) throw new Error(`eBay HTTP ${res.status}`);
+  if (!res.ok) throw new Error(`eBay HTTP ${res.status} (via ${via})`);
   const html = await res.text();
   const items = parseEbayHtml(html, limit);
-  console.log(`[ebay] ${items.length} items via fetch: ${ebayUrl.split('?')[0]} | html=${html.length}b | preview="${html.slice(0, 120).replace(/\s+/g, ' ')}"`);
+  console.log(`[ebay] ${items.length} items via ${via}: ${ebayUrl.split('?')[0]} | html=${html.length}b`);
   return items;
 }
 
