@@ -136,7 +136,7 @@ async function _doScrape(ebayUrl: string, limit: number): Promise<EbayItem[]> {
   if (!res.ok) throw new Error(`eBay HTTP ${res.status}`);
   const html = await res.text();
   const items = parseEbayHtml(html, limit);
-  console.log(`[ebay] ${items.length} items via fetch: ${ebayUrl.split('?')[0]}`);
+  console.log(`[ebay] ${items.length} items via fetch: ${ebayUrl.split('?')[0]} | html=${html.length}b | preview="${html.slice(0, 120).replace(/\s+/g, ' ')}"`);
   return items;
 }
 
