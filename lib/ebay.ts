@@ -255,7 +255,7 @@ const COUNTRY_FILTER: Record<string, string> = {
 
 // ── Búsqueda base (una sola URL) ─────────────────────────────
 async function scrapeEbay(baseUrl: string, keywords: string, limit: number, opts: {
-  minPrice?: number; maxPrice?: number; condId?: string; country?: string;
+  minPrice?: number; maxPrice?: number; condId?: string; country?: string; binOnly?: boolean;
 }): Promise<EbayItem[]> {
   const url = new URL(`${baseUrl}/sch/i.html`);
   url.searchParams.set('_nkw',  keywords);
@@ -265,6 +265,8 @@ async function scrapeEbay(baseUrl: string, keywords: string, limit: number, opts
   if (opts.maxPrice !== undefined) url.searchParams.set('_udhi', String(opts.maxPrice));
   if (opts.condId)  url.searchParams.set('LH_ItemCondition', opts.condId);
   if (opts.country) url.searchParams.set('LH_PrefLoc',       opts.country);
+  // LH_BIN=1: solo "Buy It Now" — filtra subastas desde eBay cuando detectBids está desactivado
+  if (opts.binOnly) url.searchParams.set('LH_BIN', '1');
   return _scrapeUrl(url.toString(), limit);
 }
 
@@ -276,11 +278,15 @@ export async function searchEbay(params: SearchParams): Promise<EbayItem[]> {
   const condId  = params.condition && params.condition !== 'ANY' ? CONDITION_IDS[params.condition] : undefined;
   const country = params.country && COUNTRY_FILTER[params.country] ? COUNTRY_FILTER[params.country] : undefined;
 
+  // Si detectBids está desactivado, pedir solo "Buy It Now" para evitar que
+  // las subastas llenen los resultados y se filtren todas sin encontrar nada.
+  const binOnly = !params.detectBids;
+
   // Búsqueda normal (con precio máximo)
   const normal = await scrapeEbay(baseUrl, params.keywords, limit, {
     minPrice: params.minPrice,
     maxPrice: params.maxPrice,
-    condId, country,
+    condId, country, binOnly,
   });
 
   if (!params.detectLots) return normal;
@@ -289,7 +295,7 @@ export async function searchEbay(params: SearchParams): Promise<EbayItem[]> {
   // Así eBay trae lotes de $50, $100, $200 que tendrán buen precio por unidad
   const lotItems = await scrapeEbay(baseUrl, `${params.keywords} lot`, limit, {
     minPrice: params.minPrice,
-    condId, country,
+    condId, country, binOnly,
   });
 
   // Combinar y deduplicar por itemId
